@@ -2,6 +2,8 @@
 
 A light browser for Mac. Spaces, previews, split view — and no ads.
 
+**[sapfire.app](https://sapfire.app)** · [Download](https://github.com/sapfireapp/sapfire/releases/latest) · [Questions and ideas](https://github.com/sapfireapp/sapfire/discussions) · [Report a bug](https://github.com/sapfireapp/sapfire/issues/new) · [Bluesky](https://bsky.app/profile/sapfire.app) · [X](https://x.com/sapfireapp)
+
 - **Spaces** with their own tabs, pinned sites and folders. Work or personal: each space can have its own profile, with its own sign-ins.
 - **VPN or direct, per site.** Send a profile — or incognito — through your VPN proxy; everything else goes direct.
 - **Split view** up to four pages, **Peek** for links from pinned sites, **Little Window** for links from other apps.
@@ -14,7 +16,11 @@ No account, no telemetry: Sapfire has no server of its own.
 
 ## Download
 
-[Latest release](https://github.com/sapfireapp/sapfire/releases/latest) — one build for Apple silicon, one for Intel. macOS 14 or later. Signed and notarized by Apple.
+From [sapfire.app](https://sapfire.app), or the [latest release](https://github.com/sapfireapp/sapfire/releases/latest) — one build for Apple silicon, one for Intel. macOS 14 or later. Signed and notarized by Apple.
+
+## Contact
+
+[hello@sapfire.app](mailto:hello@sapfire.app)
 
 ## Build from source
 
