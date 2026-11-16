@@ -1436,6 +1436,8 @@ final class BrowserModel {
         set { let p = currentSpace.paneTabs; if p.indices.contains(newValue), currentSpace.selectedTabID != p[newValue].id { currentSpace.selectedTabID = p[newValue].id } }
     }
     var commandBar: CommandTarget?
+    /// Строка действительно на экране (onAppear/onDisappear её вида)
+    @ObservationIgnored var commandBarOnScreen = false
     /// Peek: страница карточкой поверх (ссылка из закреплённой вкладки)
     var peek: Tab?
     /// Тащат капсулу адреса панели сплита
@@ -2076,7 +2078,8 @@ final class BrowserModel {
     /// ⇧⌘N — инкогнито-пространство (одно; если уже есть — переходим в него).
     func openIncognito() {
         _ = incognitoSpace()
-        showCommandBar(.newTab)
+        // Строку — следующим шагом, когда переход в пространство уже начался: в одном такте с ним SwiftUI её терял
+        DispatchQueue.main.async { self.showCommandBar(.newTab) }
     }
 
     /// Пространство инкогнито (создаётся, если его нет) — на экран
@@ -2151,11 +2154,23 @@ final class BrowserModel {
 
     // MARK: Command bar
 
+    /// Каждый вызов строки (и повторный ⌘T при уже открытой) — курсор снова в поле
+    var commandFocusTick = 0
+
     func showCommandBar(_ target: CommandTarget) {
+        commandFocusTick += 1
         commandText = target == .current ? (activeTab?.url?.absoluteString ?? "") : ""
         commandIndex = 0
         SearchSuggest.shared.reset()
         commandBar = target
+        // Строку открыли в момент перехода в другое пространство (⇧⌘N в инкогнито, особенно без полосы над страницей):
+        // SwiftUI иногда теряет это изменение — строка «открыта», а на экране её нет, и ⌘T ничего не меняет.
+        // Не появилась — закрыть и открыть заново
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            guard let self, let t = self.commandBar, !self.commandBarOnScreen else { return }
+            self.commandBar = nil
+            DispatchQueue.main.async { if self.commandBar == nil { self.commandBar = t } }
+        }
     }
 
     func hideCommandBar() {

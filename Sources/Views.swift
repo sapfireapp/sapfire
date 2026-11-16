@@ -770,12 +770,12 @@ struct WindowOverlays: View {
             if model.currentSpace.isIncognito && IncognitoLock.shared.locked {
                 IncognitoLockView().zIndex(10).transition(.opacity)
             }
-            // Уведомления — справа сверху под полосой; если там карточка (пересказ, картинка) — справа снизу над загрузками
+            // Уведомления — справа сверху под полосой (открыт поиск ⌘F — под ним); если там карточка (пересказ, картинка) — справа снизу над загрузками
             let cardOpen = (Summarizer.shared.visible && Summarizer.shared.tabID == model.activeTab?.id)
                 || (ImageCapture.shared.visible && ImageCapture.shared.tabID == model.activeTab?.id)
             NoticeStack(fromBottom: cardOpen)
                 .padding(Metrics.inset)
-                .padding(.top, cardOpen ? 0 : (PageToolbar.enabled ? PageToolbar.height : 0))
+                .padding(.top, cardOpen ? 0 : (PageToolbar.enabled ? PageToolbar.height : 0) + (model.find.visible ? FindBar.height + Metrics.inset : 0))
                 .padding(.bottom, cardOpen ? DownloadsBadge.reserve : 0)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: cardOpen ? .bottomTrailing : .topTrailing)
                 .zIndex(3)
@@ -3168,16 +3168,34 @@ struct CommandBarView: View {
             .padding(.top, max(40, geo.size.height * 0.2))
         }
         .onAppear {
+            model.commandBarOnScreen = true
             pos.opened(model: model)
             withAnimation(.easeOut(duration: 0.18)) { appeared = true }
         }
-        .onDisappear { pos.closed() }
-        .onAppear {
-            DispatchQueue.main.async {
-                focused = true
-                // Адрес текущей страницы выделен целиком — начал печатать, и он заменился
-                if model.commandBar == .current {
-                    DispatchQueue.main.async { NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil) }
+        .onDisappear { model.commandBarOnScreen = false; pos.closed() }
+        .onAppear { focusField() }
+        // Строку открыли снова, пока прежняя ещё уезжала (Esc и сразу ⌘T), — вид тот же, onAppear не приходит
+        .onChange(of: model.commandBar) { _, bar in if bar != nil { focusField() } }
+        // ⌘T при уже открытой строке (значение то же — onChange выше молчит): курсор потерялся — вернуть
+        .onChange(of: model.commandFocusTick) { focusField() }
+    }
+
+    /// Курсор — в поле. Не встал с первого раза (пустое инкогнито: после Esc фокус ни у кого) — ещё раз
+    private func focusField(retry: Bool = true) {
+        DispatchQueue.main.async {
+            focused = true
+            // Адрес текущей страницы выделен целиком — начал печатать, и он заменился
+            if model.commandBar == .current {
+                DispatchQueue.main.async { NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil) }
+            }
+            guard retry else { return }
+            // Проверка дважды: сразу и после перехода в другое пространство (пружина ~0,35 с —
+            // уходящая страница, у которой был фокус, снимается с экрана и забирает его с собой)
+            for delay in [0.15, 0.5] {
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                    guard model.commandBar != nil, !(model.mainWindow?.firstResponder is NSText) else { return }
+                    focused = false
+                    focusField(retry: false)
                 }
             }
         }

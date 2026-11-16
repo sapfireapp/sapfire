@@ -58,11 +58,19 @@ final class GemSCNView: SCNView, SCNSceneRendererDelegate {
         stillFor = 10
     }
     required init?(coder: NSCoder) { fatalError() }
-    deinit { wake?.invalidate() }
+    deinit { wake?.invalidate(); watchers.forEach(NotificationCenter.default.removeObserver) }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        if window == nil { wake?.invalidate(); wake = nil }
+        watchers.forEach(NotificationCenter.default.removeObserver)
+        watchers = []
+        if window == nil { wake?.invalidate(); wake = nil; return }
+        let nc = NotificationCenter.default
+        for name in [NSApplication.didBecomeActiveNotification, NSApplication.didResignActiveNotification] {
+            watchers.append(nc.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in self?.refreshVisible() })
+        }
+        watchers.append(nc.addObserver(forName: NSWindow.didChangeOcclusionStateNotification, object: window, queue: .main) { [weak self] _ in self?.refreshVisible() })
+        refreshVisible()
     }
 
     func renderer(_ r: SCNSceneRenderer, updateAtTime time: TimeInterval) {
@@ -70,9 +78,11 @@ final class GemSCNView: SCNView, SCNSceneRendererDelegate {
         last = time
         guard dt > 0 else { return }
 
-        // Курсор двигается?
+        // Курсор двигается? Только если камень кому-то виден: Sapfire впереди и окно не закрыто другими.
+        // Раньше камень следил за курсором и в чужих программах — 60 кадров в секунду при любом движении мыши
+        // (13 ноября 2026: Sapfire в «Мониторинге системы» — первым по энергии)
         let m = NSEvent.mouseLocation
-        if m != mouse { mouse = m; stillFor = 0 } else { stillFor += dt }
+        if m != mouse, visibleNow { mouse = m; stillFor = 0 } else { mouse = m; stillFor += dt }
         let active = stillFor < 1.2 || dragging
 
         // Своя ось
@@ -138,13 +148,25 @@ final class GemSCNView: SCNView, SCNSceneRendererDelegate {
         }
     }
 
+    /// То же, но для потока отрисовки SceneKit (AppKit читаем только на главном): обновляется по уведомлениям
+    private var visibleNow = true
+    private var watchers: [NSObjectProtocol] = []
+    private func refreshVisible() { visibleNow = onScreen }
+
+    /// Камень виден человеку: Sapfire активен и окно на экране, не закрыто другими
+    private var onScreen: Bool {
+        guard let w = window, w.isVisible, w.occlusionState.contains(.visible) else { return false }
+        return NSApp.isActive || dragging
+    }
+
     private func sleep() {
         guard rendersContinuously, window != nil else { return }
         rendersContinuously = false
         wake?.invalidate()
         wake = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
             guard let self else { return }
-            if NSEvent.mouseLocation != self.mouse { self.resume() }
+            // Проснуться — только если курсор двинулся и камень виден (не за другими окнами, Sapfire впереди)
+            if NSEvent.mouseLocation != self.mouse, self.onScreen { self.resume() }
         }
     }
 

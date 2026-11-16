@@ -139,6 +139,8 @@ final class FindController {
 // MARK: - Плашка поиска (справа сверху)
 
 struct FindBar: View {
+    /// Высота капсулы поиска (уведомления справа сверху встают под ней)
+    static let height: CGFloat = 36
     @Environment(BrowserModel.self) private var model
     private var find: FindController { model.find }
     @FocusState private var focused: Bool
@@ -167,7 +169,7 @@ struct FindBar: View {
             FindButton(icon: "xmark") { find.hide() }
         }
         .padding(.leading, 12).padding(.trailing, 6)   // (36 − 24) / 2 = 6 — как сверху и снизу у кнопок
-        .frame(height: 36)
+        .frame(height: Self.height)
         .background(Color(nsColor: .windowBackgroundColor), in: Capsule())
         .overlay(Capsule().stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
         .shadow(color: .black.opacity(0.15), radius: 10, y: 3)
